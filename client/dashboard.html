@@ -385,6 +385,7 @@
     socket.on('peer_left', ({ role }) => { if (role === 'wheel') updatePeerStatus(false); });
 
     function updatePeerStatus(connected) {
+      const el = document.getElementById('peer-status');
       el.textContent = connected ? 'Vô lăng đã kết nối' : 'Chờ vô lăng kết nối...';
       el.className = connected ? 'connected' : 'waiting';
     }
