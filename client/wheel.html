@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Drive Sim - Vô Lăng</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    #top-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: #1a1d27;
+      border-bottom: 1px solid #2a2d3a;
+      flex-shrink: 0;
+    }
+
+    .bar-title { font-weight: 700; letter-spacing: 2px; font-size: 0.85rem; color: #4f8ef7; }
+    .badge { background: #1e2538; border: 1px solid #2a2d3a; border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; color: #888; }
+    .badge span { color: #fff; font-weight: 600; }
+
+    #peer-status { font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; background: #1e2538; }
+    #peer-status.connected { color: #4ab866; }
+    #peer-status.waiting { color: #e0b050; }
+
+    /* Wheel area */
+    #wheel-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      width: 100%;
+      padding: 16px;
+    }
+
+    #wheel-canvas {
+      display: block;
+      touch-action: none;
+    }
+
+    .angle-display {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 2px;
+      text-align: center;
+    }
+
+    .angle-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666;
+      text-align: center;
+      margin-top: 2px;
+    }
+
+    /* Calibrate button */
+    #btn-calibrate {
+      background: #1e2538;
+      border: 1px solid #2a2d3a;
+      border-radius: 10px;
+      color: #888;
+      font-size: 0.85rem;
+      padding: 10px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #btn-calibrate:hover, #btn-calibrate:active {
+      border-color: #4f8ef7;
+      color: #fff;
+      background: #1a2340;
+    }
+
+    /* Permission request overlay */
+    #permission-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10,12,20,0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding: 32px;
+      z-index: 100;
+      text-align: center;
+    }
+
+    #permission-overlay h2 { font-size: 1.4rem; }
+    #permission-overlay p { color: #888; font-size: 0.9rem; line-height: 1.6; }
+
+    #btn-grant {
+      background: #4f8ef7;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 14px 32px;
+      cursor: pointer;
+    }
+
+    /* Input mode tabs */
+    #mode-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .mode-tab {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      color: #666;
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mode-tab.active {
+      background: #1a2340;
+      border-color: #4f8ef7;
+      color: #fff;
+    }
+
+    /* Touch wheel hint */
+    #touch-hint {
+      font-size: 0.75rem;
+      color: #555;
+      text-align: center;
+    }
+
+    /* Touch steer buttons */
+    #touch-btns {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 20px 28px;
+      gap: 16px;
+      pointer-events: none;
+    }
+
+    #touch-btns.visible {
+      display: flex;
+    }
+
+    .steer-btn {
+      flex: 1;
+      height: 100px;
+      background: rgba(15,17,23,0.9);
+      border: 2px solid #2a2d3a;
+      border-radius: 20px;
+      color: #fff;
+      font-size: 2rem;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      pointer-events: all;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: background 0.1s, border-color 0.1s, transform 0.1s;
+      backdrop-filter: blur(4px);
+    }
+
+    .steer-btn span.label {
+      font-size: 0.7rem;
+      color: #888;
+      font-weight: 400;
+      letter-spacing: 1px;
+    }
+
+    #btn-steer-left  { border-color: #547792; }
+    #btn-steer-right { border-color: #547792; }
+
+    #btn-steer-left.pressing  { background: rgba(79,142,247,0.2); border-color: #4f8ef7; transform: scale(0.96); }
+    #btn-steer-right.pressing { background: rgba(79,142,247,0.2); border-color: #4f8ef7; transform: scale(0.96); }
+
+    #gyro-debug {
+      font-size: 0.7rem;
+      color: #555;
+      text-align: center;
+      line-height: 1.6;
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      padding: 6px 12px;
+    }
+
+    #gyro-debug.active { color: #4ab866; border-color: #4ab866; }
+    #gyro-debug.error  { color: #e07070; border-color: #e07070; }
+  </style>
+</head>
+<body>
+
+  <!-- Permission overlay (iOS) -->
+  <div id="permission-overlay" style="display:none;">
+    <h2>Cần quyền cảm biến</h2>
+    <p>Ứng dụng cần truy cập cảm biến gyroscope để mô phỏng vô lăng.<br>Nhấn nút bên dưới để cấp quyền.</p>
+    <button id="btn-grant" onclick="requestPermission()">Cấp quyền cảm biến</button>
+  </div>
+
+  <div id="top-bar">
+    <span class="bar-title">VÔ LĂNG</span>
+    <div class="badge">Phòng: <span id="room-id">----</span></div>
+    <div id="peer-status" class="waiting">Chờ kết nối...</div>
+  </div>
+
+  <div id="wheel-area">
+    <div id="mode-tabs">
+      <div class="mode-tab active" id="tab-gyro" onclick="setMode('gyro')">Gyroscope</div>
+      <div class="mode-tab" id="tab-touch" onclick="setMode('touch')">Chạm</div>
+    </div>
+
+    <canvas id="wheel-canvas" width="280" height="280"></canvas>
+
+    <div>
+      <div class="angle-display" id="angle-display">0°</div>
+      <div class="angle-label">Góc vô lăng</div>
+    </div>
+
+    <button id="btn-calibrate" onclick="calibrate()">Căn chỉnh vị trí thẳng</button>
+    <div id="touch-hint" style="display:none;">Giữ nút để lái, nhả ra vô lăng tự trả về</div>
+    <div id="gyro-debug">Đang chờ cảm biến...</div>
+  </div>
+
+  <!-- Touch steer buttons (shown in touch mode) -->
+  <div id="touch-btns">
+    <button class="steer-btn" id="btn-steer-left">
+      ◀
+      <span class="label">TRÁI</span>
+    </button>
+    <button class="steer-btn" id="btn-steer-right">
+      ▶
+      <span class="label">PHẢI</span>
+    </button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // ─── Setup ───────────────────────────────────────────────────────────────
+    const params = new URLSearchParams(location.search);
+    const roomId = params.get('room');
+    if (!roomId) { location.href = '/'; }
+    document.getElementById('room-id').textContent = roomId;
+
+    const socket = io();
+    socket.emit('join', { roomId, role: 'wheel' });
+
+    socket.on('error', ({ message }) => { alert(message); location.href = '/'; });
+    socket.on('peer_joined', ({ role }) => {
+      if (role === 'dashboard') updatePeerStatus(true);
+    });
+    socket.on('peer_left', ({ role }) => {
+      if (role === 'dashboard') updatePeerStatus(false);
+    });
+    socket.on('state', (state) => {
+      // Reflect dashboard car state on wheel (show actual steering angle from server)
+    });
+
+    function updatePeerStatus(connected) {
+      const el = document.getElementById('peer-status');
+      el.textContent = connected ? 'Bảng điều khiển kết nối' : 'Chờ kết nối...';
+      el.className = connected ? 'connected' : 'waiting';
+    }
+
+    // ─── Steering state ───────────────────────────────────────────────────────
+    const MAX_WHEEL_ANGLE = 360;   // visual wheel rotation degrees (full lock)
+    const MAX_FRONT_WHEEL = 35;    // front wheel degrees (sent to server)
+
+    let steeringAngle = 0;         // -MAX_WHEEL_ANGLE to +MAX_WHEEL_ANGLE (visual)
+    let lastSentAngle = null;
+
+    function sendSteering(visualAngle) {
+      // Map visual wheel rotation to front wheel angle
+      const frontAngle = (visualAngle / MAX_WHEEL_ANGLE) * MAX_FRONT_WHEEL;
+      const clamped = Math.max(-MAX_FRONT_WHEEL, Math.min(MAX_FRONT_WHEEL, frontAngle));
+
+      if (lastSentAngle !== null && Math.abs(clamped - lastSentAngle) < 0.3) return;
+      lastSentAngle = clamped;
+      socket.emit('input', { type: 'steering', angle: clamped });
+    }
+
+    function updateDisplay(visualAngle) {
+      document.getElementById('angle-display').textContent =
+        (visualAngle >= 0 ? '+' : '') + visualAngle.toFixed(1) + '°';
+      renderWheel(visualAngle);
+      sendSteering(visualAngle);
+    }
+
+    // ─── Mode management ─────────────────────────────────────────────────────
+    let currentMode = 'gyro';
+    let gyroListening = false;
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById('tab-gyro').classList.toggle('active', mode === 'gyro');
+      document.getElementById('tab-touch').classList.toggle('active', mode === 'touch');
+      document.getElementById('btn-calibrate').style.display = mode === 'gyro' ? '' : 'none';
+      document.getElementById('touch-hint').style.display = mode === 'touch' ? '' : 'none';
+      document.getElementById('gyro-debug').style.display = mode === 'gyro' ? '' : 'none';
+      document.getElementById('touch-btns').classList.toggle('visible', mode === 'touch');
+      if (mode === 'gyro') initGyro();
+    }
+
+    function setGyroDebug(text, state) {
+      const el = document.getElementById('gyro-debug');
+      el.textContent = text;
+      el.className = state || '';
+    }
+
+    // ─── Gyroscope mode ───────────────────────────────────────────────────────
+    let gyroBaseline = null;
+    let gyroEventCount = 0;
+
+    function calibrate() {
+      gyroBaseline = null;
+      document.getElementById('btn-calibrate').textContent = 'Đã căn chỉnh!';
+      setTimeout(() => {
+        document.getElementById('btn-calibrate').textContent = 'Căn chỉnh vị trí thẳng';
+      }, 1500);
+    }
+
+    function initGyro() {
+      if (gyroListening) return;
+
+      // iOS 13+ requires explicit permission
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        document.getElementById('permission-overlay').style.display = 'flex';
+        return;
+      }
+
+      if (typeof DeviceOrientationEvent === 'undefined') {
+        setGyroDebug('Thiết bị không có cảm biến', 'error');
+        return;
+      }
+
+      startGyro();
+    }
+
+    function requestPermission() {
+      DeviceOrientationEvent.requestPermission().then(state => {
+        document.getElementById('permission-overlay').style.display = 'none';
+        if (state === 'granted') startGyro();
+        else {
+          setGyroDebug('Quyền bị từ chối', 'error');
+          setMode('touch');
+        }
+      }).catch(() => {
+        setGyroDebug('Lỗi xin quyền', 'error');
+        setMode('touch');
+      });
+    }
+
+    function startGyro() {
+      gyroListening = true;
+      setGyroDebug('Đang chờ tín hiệu cảm biến...');
+
+      // Android Chrome requires a user-gesture triggered listener in some versions.
+      // Use 'deviceorientationabsolute' first (more reliable on Android), fallback to 'deviceorientation'
+      let eventName = 'deviceorientation';
+
+      // Check if absolute orientation is available (Android preferred)
+      if ('ondeviceorientationabsolute' in window) {
+        eventName = 'deviceorientationabsolute';
+      }
+
+      // Timeout: if no events in 2s, try the other event name
+      const fallbackTimer = setTimeout(() => {
+        if (gyroEventCount === 0) {
+          const other = eventName === 'deviceorientationabsolute' ? 'deviceorientation' : 'deviceorientationabsolute';
+          window.removeEventListener(eventName, handleOrientation, true);
+          eventName = other;
+          window.addEventListener(other, handleOrientation, true);
+          setGyroDebug('Thử lại cảm biến...');
+
+          // Second timeout: give up
+          setTimeout(() => {
+            if (gyroEventCount === 0) {
+              setGyroDebug('Không nhận được cảm biến. Thử chế độ Chạm.', 'error');
+            }
+          }, 2000);
+        }
+      }, 2000);
+
+      window.addEventListener(eventName, handleOrientation, true);
+    }
+
+    function handleOrientation(e) {
+      if (currentMode !== 'gyro') return;
+
+      gyroEventCount++;
+
+      // gamma = tilt left/right (-90 to +90)
+      // Works when phone is held upright (portrait)
+      let gamma = e.gamma;
+      if (gamma === null || gamma === undefined) return;
+
+      // If phone is held landscape, beta becomes the tilt axis
+      // Detect orientation and pick the right axis
+      const orient = screen.orientation ? screen.orientation.angle : window.orientation || 0;
+      let tilt = gamma;
+      if (orient === 90 || orient === -90 || orient === 270) {
+        // Landscape: use beta instead, negate for correct direction
+        tilt = orient === 90 ? -(e.beta || 0) : (e.beta || 0);
+      }
+
+      if (gyroBaseline === null) {
+        gyroBaseline = tilt;
+        setGyroDebug(`Cảm biến OK · gamma=${tilt.toFixed(1)}°`, 'active');
+      }
+
+      const delta = tilt - gyroBaseline;
+      // Sensitivity: 1° phone tilt = ~3.5° visual wheel rotation
+      const visual = Math.max(-MAX_WHEEL_ANGLE, Math.min(MAX_WHEEL_ANGLE, delta * 3.5));
+      steeringAngle = visual;
+      updateDisplay(visual);
+
+      // Update debug every ~30 frames
+      if (gyroEventCount % 30 === 0) {
+        setGyroDebug(`Cảm biến OK · tilt=${tilt.toFixed(1)}° delta=${delta.toFixed(1)}°`, 'active');
+      }
+    }
+
+    // Auto-init
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      // Android / desktop: start immediately
+      startGyro();
+    } else if (typeof DeviceOrientationEvent === 'undefined') {
+      setGyroDebug('Thiết bị không có cảm biến', 'error');
+      setMode('touch');
+    }
+    // iOS: wait for user to tap (handled by permission-overlay)
+
+    // ─── Touch steer buttons ──────────────────────────────────────────────────
+    const TURN_RATE   = 280; // degrees/sec while held
+    const SPRING_RATE = 220; // degrees/sec spring back
+
+    // Use touch-id sets so mobile synthetic mouse events don't interfere
+    const touchesLeft  = new Set();
+    const touchesRight = new Set();
+
+    function isPressingLeft()  { return touchesLeft.size  > 0; }
+    function isPressingRight() { return touchesRight.size > 0; }
+
+    let springRAF = null;
+
+    function ensureLoop() {
+      if (springRAF) cancelAnimationFrame(springRAF);
+      let last = performance.now();
+      function tick(now) {
+        const dt = Math.min((now - last) / 1000, 0.05);
+        last = now;
+
+        if (isPressingLeft()) {
+          steeringAngle = Math.max(-MAX_WHEEL_ANGLE, steeringAngle - TURN_RATE * dt);
+          updateDisplay(steeringAngle);
+          springRAF = requestAnimationFrame(tick);
+        } else if (isPressingRight()) {
+          steeringAngle = Math.min(MAX_WHEEL_ANGLE, steeringAngle + TURN_RATE * dt);
+          updateDisplay(steeringAngle);
+          springRAF = requestAnimationFrame(tick);
+        } else if (Math.abs(steeringAngle) >= 1) {
+          // Spring back
+          steeringAngle -= Math.sign(steeringAngle) * Math.min(SPRING_RATE * dt, Math.abs(steeringAngle));
+          updateDisplay(steeringAngle);
+          springRAF = requestAnimationFrame(tick);
+        } else {
+          steeringAngle = 0;
+          updateDisplay(0);
+          springRAF = null;
+        }
+      }
+      springRAF = requestAnimationFrame(tick);
+    }
+
+    function setupSteerBtn(btnId, side) {
+      const btn = document.getElementById(btnId);
+      const set = side === 'left' ? touchesLeft : touchesRight;
+
+      // Touch events — use identifier to track each finger
+      btn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) set.add(t.identifier);
+        btn.classList.add('pressing');
+        ensureLoop();
+      }, { passive: false });
+
+      const touchEnd = e => {
+        e.preventDefault();
+        for (const t of e.changedTouches) set.delete(t.identifier);
+        if (set.size === 0) btn.classList.remove('pressing');
+        ensureLoop();
+      };
+      btn.addEventListener('touchend',    touchEnd, { passive: false });
+      btn.addEventListener('touchcancel', touchEnd, { passive: false });
+
+      // Mouse events (desktop only — ignore if touch device)
+      btn.addEventListener('mousedown', e => {
+        if (e.sourceCapabilities && !e.sourceCapabilities.firesTouchEvents) {
+          set.add('mouse');
+          btn.classList.add('pressing');
+          ensureLoop();
+        }
+      });
+      const mouseEnd = () => {
+        set.delete('mouse');
+        btn.classList.remove('pressing');
+        ensureLoop();
+      };
+      btn.addEventListener('mouseup',    mouseEnd);
+      btn.addEventListener('mouseleave', mouseEnd);
+    }
+
+    setupSteerBtn('btn-steer-left',  'left');
+    setupSteerBtn('btn-steer-right', 'right');
+
+    // ─── Wheel canvas render ─────────────────────────────────────────────────
+    const wCtx = wheelCanvas.getContext('2d');
+    const CX = wheelCanvas.width / 2;
+    const CY = wheelCanvas.height / 2;
+    const OUTER_R = 120;
+    const INNER_R = 80;
+    const GRIP_R = 108;
+
+    function renderWheel(visualAngle) {
+      const W = wheelCanvas.width;
+      const H = wheelCanvas.height;
+      wCtx.clearRect(0, 0, W, H);
+
+      const rot = (visualAngle / 180) * Math.PI;
+
+      wCtx.save();
+      wCtx.translate(CX, CY);
+      wCtx.rotate(rot);
+
+      // Outer ring
+      const ringGrad = wCtx.createRadialGradient(0, 0, INNER_R, 0, 0, OUTER_R);
+      ringGrad.addColorStop(0, '#2a3248');
+      ringGrad.addColorStop(1, '#1a2030');
+      wCtx.fillStyle = ringGrad;
+      wCtx.beginPath();
+      wCtx.arc(0, 0, OUTER_R, 0, Math.PI * 2);
+      wCtx.arc(0, 0, INNER_R, 0, Math.PI * 2, true);
+      wCtx.fill();
+
+      // Ring border
+      wCtx.strokeStyle = '#4f6080';
+      wCtx.lineWidth = 2;
+      wCtx.beginPath();
+      wCtx.arc(0, 0, OUTER_R, 0, Math.PI * 2);
+      wCtx.stroke();
+      wCtx.beginPath();
+      wCtx.arc(0, 0, INNER_R, 0, Math.PI * 2);
+      wCtx.stroke();
+
+      // Grip texture marks on rim
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const innerR = OUTER_R - 8;
+        const outerR = OUTER_R - 2;
+        wCtx.strokeStyle = i % 3 === 0 ? 'rgba(79,142,247,0.5)' : 'rgba(255,255,255,0.08)';
+        wCtx.lineWidth = i % 3 === 0 ? 2 : 1;
+        wCtx.beginPath();
+        wCtx.moveTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
+        wCtx.lineTo(Math.cos(a) * outerR, Math.sin(a) * outerR);
+        wCtx.stroke();
+      }
+
+      // Spokes (3 spokes)
+      const spokeAngles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
+      for (const sa of spokeAngles) {
+        wCtx.save();
+        wCtx.rotate(sa);
+        const spokeGrad = wCtx.createLinearGradient(0, -INNER_R, 0, INNER_R);
+        spokeGrad.addColorStop(0, '#3a4a6a');
+        spokeGrad.addColorStop(0.5, '#2a3a5a');
+        spokeGrad.addColorStop(1, '#3a4a6a');
+        wCtx.fillStyle = spokeGrad;
+        wCtx.strokeStyle = '#4f6080';
+        wCtx.lineWidth = 1;
+        const spokeW = 12;
+        wCtx.beginPath();
+        wCtx.roundRect(-spokeW / 2, -INNER_R + 4, spokeW, INNER_R * 2 - 8, 4);
+        wCtx.fill();
+        wCtx.stroke();
+        wCtx.restore();
+      }
+
+      // Center hub
+      const hubGrad = wCtx.createRadialGradient(-5, -5, 2, 0, 0, 30);
+      hubGrad.addColorStop(0, '#5a7aaa');
+      hubGrad.addColorStop(1, '#1a2a4a');
+      wCtx.fillStyle = hubGrad;
+      wCtx.strokeStyle = '#4f6080';
+      wCtx.lineWidth = 2;
+      wCtx.beginPath();
+      wCtx.arc(0, 0, 30, 0, Math.PI * 2);
+      wCtx.fill();
+      wCtx.stroke();
+
+      // Top marker (12 o'clock indicator)
+      wCtx.fillStyle = '#4f8ef7';
+      wCtx.beginPath();
+      wCtx.arc(0, -OUTER_R + 8, 5, 0, Math.PI * 2);
+      wCtx.fill();
+
+      wCtx.restore();
+
+      // Fixed outer ring reference mark (does not rotate)
+      wCtx.save();
+      wCtx.translate(CX, CY);
+      wCtx.strokeStyle = 'rgba(79,142,247,0.4)';
+      wCtx.lineWidth = 2;
+      wCtx.beginPath();
+      wCtx.moveTo(0, -(OUTER_R + 8));
+      wCtx.lineTo(0, -(OUTER_R + 16));
+      wCtx.stroke();
+      wCtx.restore();
+
+      // Steering angle arc outside wheel
+      drawAngleArc(visualAngle);
+    }
+
+    function drawAngleArc(visualAngle) {
+      if (Math.abs(visualAngle) < 2) return;
+      wCtx.save();
+      wCtx.translate(CX, CY);
+
+      const arcR = OUTER_R + 20;
+      const startAngle = -Math.PI / 2;
+      const endAngle = startAngle + (visualAngle / 180) * Math.PI;
+      const ccw = visualAngle < 0;
+
+      wCtx.strokeStyle = visualAngle > 0 ? 'rgba(79,142,247,0.7)' : 'rgba(224,112,112,0.7)';
+      wCtx.lineWidth = 4;
+      wCtx.lineCap = 'round';
+      wCtx.beginPath();
+      wCtx.arc(0, 0, arcR, startAngle, endAngle, ccw);
+      wCtx.stroke();
+
+      wCtx.restore();
+    }
+
+    // Initial render
+    renderWheel(0);
+  </script>
+</body>
+</html>

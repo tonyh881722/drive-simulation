@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drive Sim - Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #top-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 20px;
+      background: #1a1d27;
+      border-bottom: 1px solid #2a2d3a;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .bar-title { font-weight: 700; letter-spacing: 2px; font-size: 0.85rem; color: #4f8ef7; }
+    .badge { background: #1e2538; border: 1px solid #2a2d3a; border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; color: #888; }
+    .badge span { color: #fff; font-weight: 600; }
+    #peer-status { font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; background: #1e2538; }
+    #peer-status.connected { color: #4ab866; }
+    #peer-status.waiting { color: #e0b050; }
+
+    #canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #three-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Camera toggle */
+    #cam-toggle {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      background: rgba(10,12,20,0.85);
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      overflow: hidden;
+      backdrop-filter: blur(4px);
+    }
+
+    .cam-btn {
+      background: none;
+      border: none;
+      color: #666;
+      font-size: 0.75rem;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .cam-btn.active { background: #1a2340; color: #4f8ef7; }
+    .cam-btn:hover { color: #fff; }
+
+    /* HUD overlay */
+    #hud {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+    }
+
+    .hud-panel {
+      background: rgba(10,12,20,0.88);
+      border: 1px solid #2a2d3a;
+      border-radius: 14px;
+      padding: 14px 18px;
+      text-align: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .hud-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 4px; }
+    .hud-value { font-size: 2rem; font-weight: 700; color: #fff; line-height: 1; }
+    .hud-unit { font-size: 0.7rem; color: #666; margin-top: 2px; }
+
+    #gear-hud { display: flex; flex-direction: column; gap: 6px; }
+
+    .gear-btn {
+      background: #1a1d27; border: 2px solid #2a2d3a; border-radius: 8px;
+      color: #666; font-size: 1rem; font-weight: 700; width: 52px; height: 40px;
+      cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+    }
+    .gear-btn:hover { border-color: #4f8ef7; color: #fff; }
+    .gear-btn.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; }
+    .gear-btn[data-gear="R"].active { background: #e07070; border-color: #e07070; }
+    .gear-btn[data-gear="N"].active { background: #e0b050; border-color: #e0b050; color: #000; }
+
+    #pedals {
+      position: absolute; bottom: 20px; right: 20px;
+      display: flex; gap: 12px;
+    }
+
+    .pedal-btn {
+      background: rgba(10,12,20,0.88); border: 2px solid #2a2d3a; border-radius: 12px;
+      color: #fff; font-size: 0.75rem; font-weight: 600; width: 80px; height: 80px;
+      cursor: pointer; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; user-select: none; -webkit-user-select: none;
+      touch-action: none; transition: all 0.1s;
+    }
+    .pedal-btn .pedal-icon { font-size: 1.6rem; }
+    .pedal-btn.pressed { transform: scale(0.93); }
+    #btn-throttle { border-color: #4ab866; }
+    #btn-throttle.pressed { background: rgba(74,184,102,0.25); }
+    #btn-brake { border-color: #e07070; }
+    #btn-brake.pressed { background: rgba(224,112,112,0.25); }
+
+    #keys-hint {
+      position: absolute; top: 14px; right: 16px;
+      font-size: 0.7rem; color: #444; line-height: 1.8;
+    }
+    #keys-hint kbd {
+      background: #1a1d27; border: 1px solid #333; border-radius: 4px;
+      padding: 1px 5px; font-size: 0.65rem; color: #888;
+    }
+
+    #steering-hud .hud-value { font-size: 1.4rem; }
+  </style>
+</head>
+<body>
+  <div id="top-bar">
+    <span class="bar-title">DRIVE SIM</span>
+    <div class="badge">Phòng: <span id="room-id">----</span></div>
+    <div id="peer-status" class="waiting">Chờ vô lăng kết nối...</div>
+    <div class="badge">Gear: <span id="bar-gear">P</span></div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="three-canvas"></canvas>
+
+    <!-- Camera toggle -->
+    <div id="cam-toggle">
+      <button class="cam-btn" id="btn-cam-top" onclick="setCam('top')">Top 90°</button>
+      <button class="cam-btn active" id="btn-cam-iso" onclick="setCam('iso')">Iso 60°</button>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-panel" id="steering-hud">
+        <div class="hud-label">Góc lái</div>
+        <div class="hud-value" id="hud-steering">0°</div>
+      </div>
+      <div class="hud-panel">
+        <div class="hud-label">Tốc độ</div>
+        <div class="hud-value" id="hud-speed">0</div>
+        <div class="hud-unit">km/h</div>
+      </div>
+      <div class="hud-panel" style="padding: 12px;">
+        <div class="hud-label" style="margin-bottom:8px;">Số</div>
+        <div id="gear-hud">
+          <button class="gear-btn active" data-gear="P" onclick="sendGear('P')">P</button>
+          <button class="gear-btn" data-gear="R" onclick="sendGear('R')">R</button>
+          <button class="gear-btn" data-gear="N" onclick="sendGear('N')">N</button>
+          <button class="gear-btn" data-gear="D" onclick="sendGear('D')">D</button>
+        </div>
+      </div>
+      <div class="hud-panel">
+        <div class="hud-label">Ga</div>
+        <div class="hud-value" id="hud-throttle" style="color:#4ab866;">0%</div>
+      </div>
+      <div class="hud-panel">
+        <div class="hud-label">Phanh</div>
+        <div class="hud-value" id="hud-brake" style="color:#e07070;">0%</div>
+      </div>
+    </div>
+
+    <!-- Pedals -->
+    <div id="pedals">
+      <button class="pedal-btn" id="btn-brake">
+        <span class="pedal-icon">🛑</span><span>Phanh</span>
+        <span style="font-size:0.6rem;color:#888;">Space / ↓</span>
+      </button>
+      <button class="pedal-btn" id="btn-throttle">
+        <span class="pedal-icon">⚡</span><span>Ga</span>
+        <span style="font-size:0.6rem;color:#888;">Shift</span>
+      </button>
+    </div>
+
+    <!-- Keys hint -->
+    <div id="keys-hint">
+      <kbd>Shift</kbd> Ga &nbsp; <kbd>Space</kbd>/<kbd>↓</kbd> Phanh<br>
+      <kbd>P</kbd> <kbd>R</kbd> <kbd>N</kbd> <kbd>D</kbd> Chuyển số
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ─── Socket setup ─────────────────────────────────────────────────────────
+    const params = new URLSearchParams(location.search);
+    const roomId = params.get('room');
+    if (!roomId) { location.href = '/'; }
+    document.getElementById('room-id').textContent = roomId;
+
+    const socket = io();
+    socket.emit('join', { roomId, role: 'dashboard' });
+    socket.on('error', ({ message }) => { alert(message); location.href = '/'; });
+    socket.on('peer_joined', ({ role }) => { if (role === 'wheel') updatePeerStatus(true); });
+    socket.on('peer_left',   ({ role }) => { if (role === 'wheel') updatePeerStatus(false); });
+
+    function updatePeerStatus(connected) {
+      const el = document.getElementById('peer-status');
+      el.textContent = connected ? 'Vô lăng đã kết nối' : 'Chờ vô lăng kết nối...';
+      el.className = connected ? 'connected' : 'waiting';
+    }
+
+    // ─── Three.js scene ───────────────────────────────────────────────────────
+    const wrap = document.getElementById('canvas-wrap');
+    const canvas = document.getElementById('three-canvas');
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setClearColor(0x0f1117);
+
+    const scene = new THREE.Scene();
+
+    // ── Camera ────────────────────────────────────────────────────────────────
+    let camMode = 'iso'; // 'top' | 'iso'
+
+    // Orthographic for top-down, perspective for iso
+    let camera = buildIsoCamera();
+
+    function buildTopCamera() {
+      const aspect = wrap.clientWidth / wrap.clientHeight;
+      const frustum = 20;
+      const cam = new THREE.OrthographicCamera(
+        -frustum * aspect, frustum * aspect,
+        frustum, -frustum,
+        0.1, 500
+      );
+      cam.position.set(0, 80, 0);
+      cam.lookAt(0, 0, 0);
+      return cam;
+    }
+
+    function buildIsoCamera() {
+      const cam = new THREE.PerspectiveCamera(45, wrap.clientWidth / wrap.clientHeight, 0.1, 500);
+      // 60° elevation: position camera above and behind car
+      cam.position.set(0, 20, 20);
+      cam.lookAt(0, 0, 0);
+      return cam;
+    }
+
+    window.setCam = function(mode) {
+      camMode = mode;
+      camera = mode === 'top' ? buildTopCamera() : buildIsoCamera();
+      resize();
+      document.getElementById('btn-cam-top').classList.toggle('active', mode === 'top');
+      document.getElementById('btn-cam-iso').classList.toggle('active',  mode === 'iso');
+    };
+
+    // ── Lighting ──────────────────────────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(10, 30, 15);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(2048, 2048);
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 200;
+    dirLight.shadow.camera.left = -30;
+    dirLight.shadow.camera.right = 30;
+    dirLight.shadow.camera.top = 30;
+    dirLight.shadow.camera.bottom = -30;
+    scene.add(dirLight);
+
+    // Soft fill from opposite side
+    const fillLight = new THREE.DirectionalLight(0x8090cc, 0.3);
+    fillLight.position.set(-8, 10, -10);
+    scene.add(fillLight);
+
+    // ── Ground grid ───────────────────────────────────────────────────────────
+    // Ground plane (receives shadows, asphalt dark)
+    const groundGeo = new THREE.PlaneGeometry(500, 500);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x111418, roughness: 1, metalness: 0 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Grid lines color #547792
+    const gridHelper = new THREE.GridHelper(300, 60, 0x547792, 0x547792);
+    gridHelper.material.opacity = 0.5;
+    gridHelper.material.transparent = true;
+    gridHelper.position.y = 0.01;
+    scene.add(gridHelper);
+
+    // ── Car colors ────────────────────────────────────────────────────────────
+    const CAR_COLOR   = 0xFACE68;
+    const ROOF_COLOR  = 0xE8B840;   // slightly darker for roof
+    const WHEEL_COLOR = 0x1a1a1a;
+    const RIM_COLOR   = 0x888888;
+
+    // ── Car dimensions (meters) ───────────────────────────────────────────────
+    const CAR_L    = 4.5;
+    const CAR_W    = 1.9;
+    const CAR_H    = 0.35;   // body height (flat slab)
+    const ROOF_H   = 0.55;
+    const WHEELBASE = 2.7;
+    const WHEEL_R  = 0.36;
+    const WHEEL_T  = 0.22;   // tyre thickness
+    const AXLE_HALF = CAR_W / 2 + WHEEL_T / 2 + 0.06;
+
+    // Car root (position updated each frame)
+    const carRoot = new THREE.Group();
+    scene.add(carRoot);
+
+    // Body
+    const bodyGeo = new THREE.BoxGeometry(CAR_W, CAR_H, CAR_L);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: CAR_COLOR, roughness: 0.4, metalness: 0.3 });
+    const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+    bodyMesh.position.y = CAR_H / 2;
+    bodyMesh.castShadow = true;
+    carRoot.add(bodyMesh);
+
+    // Roof / cabin
+    const roofGeo = new THREE.BoxGeometry(CAR_W * 0.75, ROOF_H, CAR_L * 0.42);
+    const roofMat = new THREE.MeshStandardMaterial({ color: ROOF_COLOR, roughness: 0.5, metalness: 0.2 });
+    const roofMesh = new THREE.Mesh(roofGeo, roofMat);
+    roofMesh.position.set(0, CAR_H + ROOF_H / 2, -CAR_L * 0.03);
+    roofMesh.castShadow = true;
+    carRoot.add(roofMesh);
+
+    // Windshield tint (front glass - semi-transparent dark)
+    const windGeo = new THREE.BoxGeometry(CAR_W * 0.72, ROOF_H * 0.7, 0.05);
+    const windMat = new THREE.MeshStandardMaterial({
+      color: 0x334466, transparent: true, opacity: 0.6, roughness: 0.1, metalness: 0.1
+    });
+    const windFront = new THREE.Mesh(windGeo, windMat);
+    windFront.position.set(0, CAR_H + ROOF_H * 0.4, CAR_L * 0.19);
+    windFront.rotation.x = 0.25;
+    carRoot.add(windFront);
+
+    const windRear = new THREE.Mesh(windGeo, windMat);
+    windRear.position.set(0, CAR_H + ROOF_H * 0.4, -CAR_L * 0.24);
+    windRear.rotation.x = -0.25;
+    carRoot.add(windRear);
+
+    // Front direction indicator arrow (small box on hood)
+    const arrowGeo = new THREE.ConeGeometry(0.12, 0.3, 3);
+    const arrowMat = new THREE.MeshStandardMaterial({ color: 0x4f8ef7, roughness: 0.5 });
+    const arrowMesh = new THREE.Mesh(arrowGeo, arrowMat);
+    arrowMesh.rotation.x = -Math.PI / 2;
+    arrowMesh.position.set(0, CAR_H + 0.05, CAR_L * 0.42);
+    carRoot.add(arrowMesh);
+
+    // ── Wheels ─────────────────────────────────────────────────────────────────
+    // Each wheel: group containing tyre + rim
+    function makeWheel() {
+      const group = new THREE.Group();
+
+      // Tyre
+      const tyreGeo = new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, WHEEL_T, 20);
+      const tyreMat = new THREE.MeshStandardMaterial({ color: WHEEL_COLOR, roughness: 0.9, metalness: 0 });
+      const tyre = new THREE.Mesh(tyreGeo, tyreMat);
+      tyre.castShadow = true;
+      group.add(tyre);
+
+      // Rim
+      const rimGeo = new THREE.CylinderGeometry(WHEEL_R * 0.55, WHEEL_R * 0.55, WHEEL_T + 0.01, 16);
+      const rimMat = new THREE.MeshStandardMaterial({ color: RIM_COLOR, roughness: 0.3, metalness: 0.8 });
+      const rim = new THREE.Mesh(rimGeo, rimMat);
+      group.add(rim);
+
+      // Spoke (flat box across rim to show rotation)
+      const spokeGeo = new THREE.BoxGeometry(WHEEL_R * 0.08, WHEEL_T + 0.02, WHEEL_R * 1.0);
+      const spokeMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.6 });
+      const spoke = new THREE.Mesh(spokeGeo, spokeMat);
+      group.add(spoke);
+
+      // Cylinder is Y-up, wheels are Z-up on car → rotate 90° on Z
+      group.rotation.z = Math.PI / 2;
+      return group;
+    }
+
+    // Wheel pivot groups for steering rotation (front wheels only rotate on Y)
+    const wheelFL_pivot = new THREE.Group(); // front-left
+    const wheelFR_pivot = new THREE.Group(); // front-right
+    const wheelRL = makeWheel();
+    const wheelRR = makeWheel();
+
+    wheelFL_pivot.add(makeWheel());
+    wheelFR_pivot.add(makeWheel());
+
+    const frontZ =  WHEELBASE / 2;
+    const rearZ  = -WHEELBASE / 2;
+
+    wheelFL_pivot.position.set(-AXLE_HALF, WHEEL_R, frontZ);
+    wheelFR_pivot.position.set( AXLE_HALF, WHEEL_R, frontZ);
+    wheelRL.position.set(-AXLE_HALF, WHEEL_R, rearZ);
+    wheelRR.position.set( AXLE_HALF, WHEEL_R, rearZ);
+
+    carRoot.add(wheelFL_pivot, wheelFR_pivot, wheelRL, wheelRR);
+
+    // ── Trajectory line ────────────────────────────────────────────────────────
+    const MAX_TRAJ_POINTS = 31;
+    const trajPositions = new Float32Array(MAX_TRAJ_POINTS * 3);
+    const trajGeo = new THREE.BufferGeometry();
+    trajGeo.setAttribute('position', new THREE.BufferAttribute(trajPositions, 3));
+    trajGeo.setDrawRange(0, 0);
+
+    const trajMat = new THREE.LineBasicMaterial({
+      color: 0x4f8ef7,
+      transparent: true,
+      opacity: 0.8,
+      linewidth: 2, // note: linewidth > 1 only works in some renderers
+    });
+    const trajLine = new THREE.Line(trajGeo, trajMat);
+    trajLine.position.y = 0.05; // slightly above ground
+    scene.add(trajLine);
+
+    // ── Camera follow ──────────────────────────────────────────────────────────
+    // Smooth camera target
+    let camTargetX = 0, camTargetZ = 0;
+    const CAM_LERP = 0.08;
+
+    // Iso camera offset in local car space (behind and above)
+    const ISO_DIST = 18;
+    const ISO_HEIGHT = 14;
+
+    function updateCamera(carState) {
+      // Smooth follow
+      camTargetX += (carState.x - camTargetX) * CAM_LERP;
+      camTargetZ += (carState.y - camTargetZ) * CAM_LERP; // physics y = world Z
+
+      if (camMode === 'top') {
+        camera.position.set(camTargetX, 80, camTargetZ);
+        camera.lookAt(camTargetX, 0, camTargetZ);
+      } else {
+        // Iso: camera behind the car based on heading
+        // Physics heading=0 → car faces -Z, so "behind" is +Z direction
+        const headingRad = (carState.heading * Math.PI) / 180;
+        const cx = camTargetX + Math.sin(headingRad) * ISO_DIST;
+        const cz = camTargetZ + Math.cos(headingRad) * ISO_DIST;
+        camera.position.set(cx, ISO_HEIGHT, cz);
+        camera.lookAt(camTargetX, 0, camTargetZ);
+      }
+    }
+
+    // ── Update trajectory geometry ─────────────────────────────────────────────
+    function updateTrajectory(points, isReverse) {
+      trajMat.color.setHex(isReverse ? 0xe07070 : 0x4f8ef7);
+      const count = Math.min(points.length, MAX_TRAJ_POINTS);
+      for (let i = 0; i < count; i++) {
+        // physics: x=x, y=world-Z (screen y → 3D z)
+        trajPositions[i * 3]     = points[i].x;
+        trajPositions[i * 3 + 1] = 0.05;
+        trajPositions[i * 3 + 2] = points[i].y;
+      }
+      trajGeo.attributes.position.needsUpdate = true;
+      trajGeo.setDrawRange(0, count);
+    }
+
+    // ── Render ─────────────────────────────────────────────────────────────────
+    let gameState = null;
+
+    socket.on('state', (state) => { gameState = state; });
+
+    function render(state) {
+      const { car, trajectory } = state;
+
+      // Update car root transform
+      // Physics: heading=0 → moving in -Y (screen up) → -Z in Three.js world
+      // BoxGeometry CAR_L is along Z → car "front" faces +Z by default
+      // So rotation.y = (heading) maps correctly: heading=0 → no rotation → faces +Z
+      // But physics heading=0 moves in -Z → need to flip: rotation.y = PI + heading
+      carRoot.position.set(car.x, 0, car.y);
+      carRoot.rotation.y = Math.PI + (car.heading * Math.PI) / 180;
+
+      // Front wheel steering
+      const steerRad = (car.steeringAngle * Math.PI) / 180;
+      wheelFL_pivot.rotation.y = -steerRad;
+      wheelFR_pivot.rotation.y = -steerRad;
+
+      // Wheel spin (rotate around their axle = Z-axis of the wheel group)
+      // The wheel group itself is rotated 90° on Z, so spinning is rotation.y of child
+      const spinDelta = (car.speed * 0.016) / WHEEL_R; // approx
+      [wheelFL_pivot.children[0], wheelFR_pivot.children[0], wheelRL, wheelRR].forEach(w => {
+        w.children[0].rotation.y += spinDelta; // tyre spin
+      });
+
+      // Trajectory
+      if (trajectory && trajectory.length > 1) {
+        const isReverse = car.speed < 0 || car.gear === 'R';
+        updateTrajectory(trajectory, isReverse);
+        trajLine.visible = true;
+      } else {
+        trajLine.visible = false;
+      }
+
+      // Camera
+      updateCamera(car);
+
+      // HUD
+      document.getElementById('hud-speed').textContent = Math.abs(car.speed * 3.6).toFixed(0);
+      document.getElementById('hud-steering').textContent = (car.steeringAngle >= 0 ? '+' : '') + car.steeringAngle.toFixed(1) + '°';
+      document.getElementById('hud-throttle').textContent = (car.throttle * 100).toFixed(0) + '%';
+      document.getElementById('hud-brake').textContent = (car.brake * 100).toFixed(0) + '%';
+      document.getElementById('bar-gear').textContent = car.gear;
+      updateGearUI(car.gear);
+
+      renderer.render(scene, camera);
+    }
+
+    function loop() {
+      if (gameState) render(gameState);
+      requestAnimationFrame(loop);
+    }
+
+    // ── Resize ─────────────────────────────────────────────────────────────────
+    function resize() {
+      const w = wrap.clientWidth;
+      const h = wrap.clientHeight;
+      renderer.setSize(w, h);
+
+      if (camMode === 'top') {
+        const frustum = 20;
+        const aspect = w / h;
+        camera.left   = -frustum * aspect;
+        camera.right  =  frustum * aspect;
+        camera.top    =  frustum;
+        camera.bottom = -frustum;
+        camera.updateProjectionMatrix();
+      } else {
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+    loop();
+
+    // ── Gear UI ────────────────────────────────────────────────────────────────
+    function updateGearUI(gear) {
+      document.querySelectorAll('.gear-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.gear === gear);
+      });
+    }
+
+    window.sendGear = function(gear) {
+      socket.emit('input', { type: 'gear', value: gear });
+    };
+
+    // ── Keyboard ───────────────────────────────────────────────────────────────
+    const keys = {};
+    document.addEventListener('keydown', e => {
+      keys[e.code] = true;
+      if (['ShiftLeft','ShiftRight','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+      if (e.code === 'KeyP') sendGear('P');
+      if (e.code === 'KeyR') sendGear('R');
+      if (e.code === 'KeyN') sendGear('N');
+      if (e.code === 'KeyD') sendGear('D');
+    });
+    document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+    let lastThrottle = -1, lastBrake = -1;
+    setInterval(() => {
+      const throttle = (keys['ShiftLeft'] || keys['ShiftRight'] || keys['ArrowUp'] || keys['KeyW']) ? 1 : 0;
+      const brake    = (keys['Space'] || keys['ArrowDown'] || keys['KeyS']) ? 1 : 0;
+      if (throttle !== lastThrottle) { socket.emit('input', { type: 'throttle', value: throttle }); lastThrottle = throttle; }
+      if (brake    !== lastBrake)    { socket.emit('input', { type: 'brake',    value: brake });    lastBrake    = brake; }
+    }, 1000 / 60);
+
+    // ── Touch pedals ───────────────────────────────────────────────────────────
+    function setupPedal(btnId, inputType) {
+      const btn = document.getElementById(btnId);
+      const press   = () => { btn.classList.add('pressed');    socket.emit('input', { type: inputType, value: 1 }); };
+      const release = () => { btn.classList.remove('pressed'); socket.emit('input', { type: inputType, value: 0 }); };
+      btn.addEventListener('mousedown',  press);
+      btn.addEventListener('mouseup',    release);
+      btn.addEventListener('mouseleave', release);
+      btn.addEventListener('touchstart', e => { e.preventDefault(); press(); },   { passive: false });
+      btn.addEventListener('touchend',   e => { e.preventDefault(); release(); }, { passive: false });
+    }
+
+    setupPedal('btn-throttle', 'throttle');
+    setupPedal('btn-brake',    'brake');
+  </script>
+</body>
+</html>

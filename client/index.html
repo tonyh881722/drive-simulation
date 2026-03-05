@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drive Simulation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      color: #fff;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 40px;
+    }
+
+    .room-section {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: 8px;
+      text-align: center;
+      padding: 14px;
+      margin-bottom: 24px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #4f8ef7;
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .role-card {
+      background: #0f1117;
+      border: 2px solid #2a2d3a;
+      border-radius: 12px;
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+
+    .role-card:hover {
+      border-color: #4f8ef7;
+      background: #161926;
+    }
+
+    .role-card.selected {
+      border-color: #4f8ef7;
+      background: #1a2340;
+    }
+
+    .role-card .icon {
+      font-size: 2.5rem;
+      margin-bottom: 8px;
+    }
+
+    .role-card .role-name {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 4px;
+    }
+
+    .role-card .role-desc {
+      font-size: 0.75rem;
+      color: #888;
+      line-height: 1.4;
+    }
+
+    .btn-join {
+      width: 100%;
+      background: #4f8ef7;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 14px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    .btn-join:hover { background: #3a7de0; }
+    .btn-join:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-gen {
+      background: none;
+      border: 1px solid #2a2d3a;
+      border-radius: 6px;
+      color: #888;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .btn-gen:hover { color: #fff; border-color: #4f8ef7; }
+
+    .room-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 8px;
+    }
+
+    #status-msg {
+      margin-top: 16px;
+      font-size: 0.85rem;
+      color: #e07070;
+      min-height: 20px;
+      text-align: center;
+    }
+
+    .tip {
+      margin-top: 24px;
+      font-size: 0.75rem;
+      color: #555;
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>DRIVE SIM</h1>
+  <p class="subtitle">Mô phỏng lái xe - học điều khiển xe an toàn</p>
+
+  <div class="room-section">
+    <div class="room-header">
+      <label for="room-input">Mã phòng</label>
+      <button class="btn-gen" onclick="generateCode()">Tạo mã ngẫu nhiên</button>
+    </div>
+    <input type="text" id="room-input" maxlength="6" placeholder="----" autocomplete="off" spellcheck="false">
+
+    <label>Vai trò của thiết bị này</label>
+    <div class="role-grid">
+      <div class="role-card" id="card-dashboard" onclick="selectRole('dashboard')">
+        <div class="icon">🖥️</div>
+        <div class="role-name">Bảng điều khiển</div>
+        <div class="role-desc">Laptop / Desktop<br>Hiển thị xe &amp; điều khiển</div>
+      </div>
+      <div class="role-card" id="card-wheel" onclick="selectRole('wheel')">
+        <div class="icon">📱</div>
+        <div class="role-name">Vô lăng</div>
+        <div class="role-desc">Điện thoại<br>Cảm biến để lái xe</div>
+      </div>
+    </div>
+
+    <button class="btn-join" id="btn-join" onclick="joinRoom()" disabled>Tham gia</button>
+    <div id="status-msg"></div>
+  </div>
+
+  <p class="tip">
+    Laptop &amp; điện thoại cùng nhập <strong>một mã phòng</strong>, chọn vai trò khác nhau.<br>
+    Đảm bảo cùng kết nối WiFi.
+  </p>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    let selectedRole = null;
+
+    // Auto-detect device: phone -> default wheel
+    if (/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
+      selectRole('wheel');
+    }
+
+    function selectRole(role) {
+      selectedRole = role;
+      document.getElementById('card-dashboard').classList.toggle('selected', role === 'dashboard');
+      document.getElementById('card-wheel').classList.toggle('selected', role === 'wheel');
+      updateJoinBtn();
+    }
+
+    function updateJoinBtn() {
+      const roomVal = document.getElementById('room-input').value.trim();
+      document.getElementById('btn-join').disabled = !(selectedRole && roomVal.length >= 2);
+    }
+
+    document.getElementById('room-input').addEventListener('input', function () {
+      this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      updateJoinBtn();
+    });
+
+    function generateCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      document.getElementById('room-input').value = code;
+      updateJoinBtn();
+    }
+
+    function joinRoom() {
+      const roomId = document.getElementById('room-input').value.trim();
+      if (!roomId || !selectedRole) return;
+
+      // Redirect directly — dashboard/wheel pages handle their own socket join
+      if (selectedRole === 'dashboard') {
+        window.location.href = `/dashboard.html?room=${roomId}`;
+      } else {
+        window.location.href = `/wheel.html?room=${roomId}`;
+      }
+    }
+  </script>
+</body>
+</html>
