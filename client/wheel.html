@@ -271,9 +271,30 @@
     document.getElementById('room-id').textContent = roomId;
 
     const socket = io();
-    socket.emit('join', { roomId, role: 'wheel' });
 
-    socket.on('error', ({ message }) => { alert(message); location.href = '/'; });
+    // Re-emit join on every connect/reconnect so the server always knows
+    // which room/role this socket belongs to after a network hiccup.
+    let hasJoinedOnce = false;
+    socket.on('connect', () => {
+      socket.emit('join', { roomId, role: 'wheel' });
+    });
+
+    socket.on('joined', () => {
+      hasJoinedOnce = true;
+    });
+
+    socket.on('error', ({ message }) => {
+      // On rapid reconnect the old slot may not have cleared yet;
+      // retry once instead of redirecting away.
+      if (hasJoinedOnce && message.includes('already taken')) {
+        console.warn('[wheel] role conflict on reconnect, retrying in 500ms...');
+        setTimeout(() => socket.emit('join', { roomId, role: 'wheel' }), 500);
+        return;
+      }
+      alert(message);
+      location.href = '/';
+    });
+
     socket.on('peer_joined', ({ role }) => {
       if (role === 'dashboard') updatePeerStatus(true);
     });

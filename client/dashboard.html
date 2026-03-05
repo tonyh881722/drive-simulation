@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Drive Sim - Dashboard</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       background: #0f1117;
@@ -28,12 +33,41 @@
       flex-wrap: wrap;
     }
 
-    .bar-title { font-weight: 700; letter-spacing: 2px; font-size: 0.85rem; color: #4f8ef7; }
-    .badge { background: #1e2538; border: 1px solid #2a2d3a; border-radius: 6px; padding: 4px 10px; font-size: 0.75rem; color: #888; }
-    .badge span { color: #fff; font-weight: 600; }
-    #peer-status { font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; background: #1e2538; }
-    #peer-status.connected { color: #4ab866; }
-    #peer-status.waiting { color: #e0b050; }
+    .bar-title {
+      font-weight: 700;
+      letter-spacing: 2px;
+      font-size: 0.85rem;
+      color: #4f8ef7;
+    }
+
+    .badge {
+      background: #1e2538;
+      border: 1px solid #2a2d3a;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    .badge span {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    #peer-status {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: #1e2538;
+    }
+
+    #peer-status.connected {
+      color: #4ab866;
+    }
+
+    #peer-status.waiting {
+      color: #e0b050;
+    }
 
     #canvas-wrap {
       flex: 1;
@@ -53,7 +87,7 @@
       top: 12px;
       left: 12px;
       display: flex;
-      background: rgba(10,12,20,0.85);
+      background: rgba(10, 12, 20, 0.85);
       border: 1px solid #2a2d3a;
       border-radius: 8px;
       overflow: hidden;
@@ -69,8 +103,15 @@
       cursor: pointer;
       transition: all 0.15s;
     }
-    .cam-btn.active { background: #1a2340; color: #4f8ef7; }
-    .cam-btn:hover { color: #fff; }
+
+    .cam-btn.active {
+      background: #1a2340;
+      color: #4f8ef7;
+    }
+
+    .cam-btn:hover {
+      color: #fff;
+    }
 
     /* HUD overlay */
     #hud {
@@ -84,7 +125,7 @@
     }
 
     .hud-panel {
-      background: rgba(10,12,20,0.88);
+      background: rgba(10, 12, 20, 0.88);
       border: 1px solid #2a2d3a;
       border-radius: 14px;
       padding: 14px 18px;
@@ -92,53 +133,148 @@
       backdrop-filter: blur(4px);
     }
 
-    .hud-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 4px; }
-    .hud-value { font-size: 2rem; font-weight: 700; color: #fff; line-height: 1; }
-    .hud-unit { font-size: 0.7rem; color: #666; margin-top: 2px; }
+    .hud-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666;
+      margin-bottom: 4px;
+    }
 
-    #gear-hud { display: flex; flex-direction: column; gap: 6px; }
+    .hud-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .hud-unit {
+      font-size: 0.7rem;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    #gear-hud {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
 
     .gear-btn {
-      background: #1a1d27; border: 2px solid #2a2d3a; border-radius: 8px;
-      color: #666; font-size: 1rem; font-weight: 700; width: 52px; height: 40px;
-      cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center;
+      background: #1a1d27;
+      border: 2px solid #2a2d3a;
+      border-radius: 8px;
+      color: #666;
+      font-size: 1rem;
+      font-weight: 700;
+      width: 52px;
+      height: 40px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .gear-btn:hover { border-color: #4f8ef7; color: #fff; }
-    .gear-btn.active { background: #4f8ef7; border-color: #4f8ef7; color: #fff; }
-    .gear-btn[data-gear="R"].active { background: #e07070; border-color: #e07070; }
-    .gear-btn[data-gear="N"].active { background: #e0b050; border-color: #e0b050; color: #000; }
+
+    .gear-btn:hover {
+      border-color: #4f8ef7;
+      color: #fff;
+    }
+
+    .gear-btn.active {
+      background: #4f8ef7;
+      border-color: #4f8ef7;
+      color: #fff;
+    }
+
+    .gear-btn[data-gear="R"].active {
+      background: #e07070;
+      border-color: #e07070;
+    }
+
+    .gear-btn[data-gear="N"].active {
+      background: #e0b050;
+      border-color: #e0b050;
+      color: #000;
+    }
 
     #pedals {
-      position: absolute; bottom: 20px; right: 20px;
-      display: flex; gap: 12px;
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      gap: 12px;
     }
 
     .pedal-btn {
-      background: rgba(10,12,20,0.88); border: 2px solid #2a2d3a; border-radius: 12px;
-      color: #fff; font-size: 0.75rem; font-weight: 600; width: 80px; height: 80px;
-      cursor: pointer; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 4px; user-select: none; -webkit-user-select: none;
-      touch-action: none; transition: all 0.1s;
+      background: rgba(10, 12, 20, 0.88);
+      border: 2px solid #2a2d3a;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+      width: 80px;
+      height: 80px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      transition: all 0.1s;
     }
-    .pedal-btn .pedal-icon { font-size: 1.6rem; }
-    .pedal-btn.pressed { transform: scale(0.93); }
-    #btn-throttle { border-color: #4ab866; }
-    #btn-throttle.pressed { background: rgba(74,184,102,0.25); }
-    #btn-brake { border-color: #e07070; }
-    #btn-brake.pressed { background: rgba(224,112,112,0.25); }
+
+    .pedal-btn .pedal-icon {
+      font-size: 1.6rem;
+    }
+
+    .pedal-btn.pressed {
+      transform: scale(0.93);
+    }
+
+    #btn-throttle {
+      border-color: #4ab866;
+    }
+
+    #btn-throttle.pressed {
+      background: rgba(74, 184, 102, 0.25);
+    }
+
+    #btn-brake {
+      border-color: #e07070;
+    }
+
+    #btn-brake.pressed {
+      background: rgba(224, 112, 112, 0.25);
+    }
 
     #keys-hint {
-      position: absolute; top: 14px; right: 16px;
-      font-size: 0.7rem; color: #444; line-height: 1.8;
-    }
-    #keys-hint kbd {
-      background: #1a1d27; border: 1px solid #333; border-radius: 4px;
-      padding: 1px 5px; font-size: 0.65rem; color: #888;
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      font-size: 0.7rem;
+      color: #444;
+      line-height: 1.8;
     }
 
-    #steering-hud .hud-value { font-size: 1.4rem; }
+    #keys-hint kbd {
+      background: #1a1d27;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.65rem;
+      color: #888;
+    }
+
+    #steering-hud .hud-value {
+      font-size: 1.4rem;
+    }
   </style>
 </head>
+
 <body>
   <div id="top-bar">
     <span class="bar-title">DRIVE SIM</span>
@@ -216,20 +352,39 @@
   <script type="module">
     import * as THREE from 'three';
 
-    // ─── Socket setup ─────────────────────────────────────────────────────────
+    // ─── Socket setup ─────────────────────────────────────────────────────────────────
     const params = new URLSearchParams(location.search);
     const roomId = params.get('room');
     if (!roomId) { location.href = '/'; }
     document.getElementById('room-id').textContent = roomId;
 
     const socket = io();
-    socket.emit('join', { roomId, role: 'dashboard' });
-    socket.on('error', ({ message }) => { alert(message); location.href = '/'; });
+
+    // Re-emit join on every connect/reconnect so the server always knows
+    // which room/role this socket belongs to after a network hiccup.
+    let hasJoinedOnce = false;
+    socket.on('connect', () => {
+      socket.emit('join', { roomId, role: 'dashboard' });
+    });
+
+    socket.on('joined', () => {
+      hasJoinedOnce = true;
+    });
+
+    socket.on('error', ({ message }) => {
+      if (hasJoinedOnce && message.includes('already taken')) {
+        console.warn('[dashboard] role conflict on reconnect, retrying in 500ms...');
+        setTimeout(() => socket.emit('join', { roomId, role: 'dashboard' }), 500);
+        return;
+      }
+      alert(message);
+      location.href = '/';
+    });
+
     socket.on('peer_joined', ({ role }) => { if (role === 'wheel') updatePeerStatus(true); });
-    socket.on('peer_left',   ({ role }) => { if (role === 'wheel') updatePeerStatus(false); });
+    socket.on('peer_left', ({ role }) => { if (role === 'wheel') updatePeerStatus(false); });
 
     function updatePeerStatus(connected) {
-      const el = document.getElementById('peer-status');
       el.textContent = connected ? 'Vô lăng đã kết nối' : 'Chờ vô lăng kết nối...';
       el.className = connected ? 'connected' : 'waiting';
     }
@@ -273,12 +428,12 @@
       return cam;
     }
 
-    window.setCam = function(mode) {
+    window.setCam = function (mode) {
       camMode = mode;
       camera = mode === 'top' ? buildTopCamera() : buildIsoCamera();
       resize();
       document.getElementById('btn-cam-top').classList.toggle('active', mode === 'top');
-      document.getElementById('btn-cam-iso').classList.toggle('active',  mode === 'iso');
+      document.getElementById('btn-cam-iso').classList.toggle('active', mode === 'iso');
     };
 
     // ── Lighting ──────────────────────────────────────────────────────────────
@@ -319,19 +474,19 @@
     scene.add(gridHelper);
 
     // ── Car colors ────────────────────────────────────────────────────────────
-    const CAR_COLOR   = 0xFACE68;
-    const ROOF_COLOR  = 0xE8B840;   // slightly darker for roof
+    const CAR_COLOR = 0xFACE68;
+    const ROOF_COLOR = 0xE8B840;   // slightly darker for roof
     const WHEEL_COLOR = 0x1a1a1a;
-    const RIM_COLOR   = 0x888888;
+    const RIM_COLOR = 0x888888;
 
     // ── Car dimensions (meters) ───────────────────────────────────────────────
-    const CAR_L    = 4.5;
-    const CAR_W    = 1.9;
-    const CAR_H    = 0.35;   // body height (flat slab)
-    const ROOF_H   = 0.55;
+    const CAR_L = 4.5;
+    const CAR_W = 1.9;
+    const CAR_H = 0.35;   // body height (flat slab)
+    const ROOF_H = 0.55;
     const WHEELBASE = 2.7;
-    const WHEEL_R  = 0.36;
-    const WHEEL_T  = 0.22;   // tyre thickness
+    const WHEEL_R = 0.36;
+    const WHEEL_T = 0.22;   // tyre thickness
     const AXLE_HALF = CAR_W / 2 + WHEEL_T / 2 + 0.06;
 
     // Car root (position updated each frame)
@@ -415,13 +570,13 @@
     wheelFL_pivot.add(makeWheel());
     wheelFR_pivot.add(makeWheel());
 
-    const frontZ =  WHEELBASE / 2;
-    const rearZ  = -WHEELBASE / 2;
+    const frontZ = WHEELBASE / 2;
+    const rearZ = -WHEELBASE / 2;
 
     wheelFL_pivot.position.set(-AXLE_HALF, WHEEL_R, frontZ);
-    wheelFR_pivot.position.set( AXLE_HALF, WHEEL_R, frontZ);
+    wheelFR_pivot.position.set(AXLE_HALF, WHEEL_R, frontZ);
     wheelRL.position.set(-AXLE_HALF, WHEEL_R, rearZ);
-    wheelRR.position.set( AXLE_HALF, WHEEL_R, rearZ);
+    wheelRR.position.set(AXLE_HALF, WHEEL_R, rearZ);
 
     carRoot.add(wheelFL_pivot, wheelFR_pivot, wheelRL, wheelRR);
 
@@ -476,7 +631,7 @@
       const count = Math.min(points.length, MAX_TRAJ_POINTS);
       for (let i = 0; i < count; i++) {
         // physics: x=x, y=world-Z (screen y → 3D z)
-        trajPositions[i * 3]     = points[i].x;
+        trajPositions[i * 3] = points[i].x;
         trajPositions[i * 3 + 1] = 0.05;
         trajPositions[i * 3 + 2] = points[i].y;
       }
@@ -549,9 +704,9 @@
       if (camMode === 'top') {
         const frustum = 20;
         const aspect = w / h;
-        camera.left   = -frustum * aspect;
-        camera.right  =  frustum * aspect;
-        camera.top    =  frustum;
+        camera.left = -frustum * aspect;
+        camera.right = frustum * aspect;
+        camera.top = frustum;
         camera.bottom = -frustum;
         camera.updateProjectionMatrix();
       } else {
@@ -571,7 +726,7 @@
       });
     }
 
-    window.sendGear = function(gear) {
+    window.sendGear = function (gear) {
       socket.emit('input', { type: 'gear', value: gear });
     };
 
@@ -579,7 +734,7 @@
     const keys = {};
     document.addEventListener('keydown', e => {
       keys[e.code] = true;
-      if (['ShiftLeft','ShiftRight','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+      if (['ShiftLeft', 'ShiftRight', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
       if (e.code === 'KeyP') sendGear('P');
       if (e.code === 'KeyR') sendGear('R');
       if (e.code === 'KeyN') sendGear('N');
@@ -590,25 +745,26 @@
     let lastThrottle = -1, lastBrake = -1;
     setInterval(() => {
       const throttle = (keys['ShiftLeft'] || keys['ShiftRight'] || keys['ArrowUp'] || keys['KeyW']) ? 1 : 0;
-      const brake    = (keys['Space'] || keys['ArrowDown'] || keys['KeyS']) ? 1 : 0;
+      const brake = (keys['Space'] || keys['ArrowDown'] || keys['KeyS']) ? 1 : 0;
       if (throttle !== lastThrottle) { socket.emit('input', { type: 'throttle', value: throttle }); lastThrottle = throttle; }
-      if (brake    !== lastBrake)    { socket.emit('input', { type: 'brake',    value: brake });    lastBrake    = brake; }
+      if (brake !== lastBrake) { socket.emit('input', { type: 'brake', value: brake }); lastBrake = brake; }
     }, 1000 / 60);
 
     // ── Touch pedals ───────────────────────────────────────────────────────────
     function setupPedal(btnId, inputType) {
       const btn = document.getElementById(btnId);
-      const press   = () => { btn.classList.add('pressed');    socket.emit('input', { type: inputType, value: 1 }); };
+      const press = () => { btn.classList.add('pressed'); socket.emit('input', { type: inputType, value: 1 }); };
       const release = () => { btn.classList.remove('pressed'); socket.emit('input', { type: inputType, value: 0 }); };
-      btn.addEventListener('mousedown',  press);
-      btn.addEventListener('mouseup',    release);
+      btn.addEventListener('mousedown', press);
+      btn.addEventListener('mouseup', release);
       btn.addEventListener('mouseleave', release);
-      btn.addEventListener('touchstart', e => { e.preventDefault(); press(); },   { passive: false });
-      btn.addEventListener('touchend',   e => { e.preventDefault(); release(); }, { passive: false });
+      btn.addEventListener('touchstart', e => { e.preventDefault(); press(); }, { passive: false });
+      btn.addEventListener('touchend', e => { e.preventDefault(); release(); }, { passive: false });
     }
 
     setupPedal('btn-throttle', 'throttle');
-    setupPedal('btn-brake',    'brake');
+    setupPedal('btn-brake', 'brake');
   </script>
 </body>
+
 </html>

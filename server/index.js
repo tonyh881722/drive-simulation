@@ -47,6 +47,13 @@ io.on('connection', (socket) => {
 
     // Notify others in room
     socket.to(roomId).emit('peer_joined', { role });
+
+    // Notify newcomer about peers already in the room
+    const peerRole = role === 'dashboard' ? 'wheel' : 'dashboard';
+    const peerExists = Object.values(room.clients).some(c => c.role === peerRole);
+    if (peerExists) {
+      socket.emit('peer_joined', { role: peerRole });
+    }
   });
 
   socket.on('input', (data) => {
